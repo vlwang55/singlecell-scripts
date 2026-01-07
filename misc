@@ -59,6 +59,63 @@ my_levels <- c('NP_1', 'NP_2', 'E8_1', 'E8_2', 'E14_1', 'E14_2', 'E17_1', 'E17_3
 obj$orig.ident <- factor(x = obj$orig.ident, levels = my_levels)
 
 
+##### MAKING A VARIABILITY PLOT #####
+# This is based on the HVG or high variability genes calculated during SCTransform
+
+# Load libraries
+library(Seurat)
+library(dplyr)
+library(ggplot2)
+
+# OPTIONAL you might need to increase your processing power
+options(future.globals.maxSize = 2891289600)
+
+obj <- SCTransform(
+  obj,
+  assay = "RNA",                    # Need to use raw RNA counts
+  new.assay.name = "SCT",
+  return.only.var.genes = FALSE,    # MUST be FALSE to get HVG diagnostics
+  conserve.memory = FALSE,          # ensures full model stored
+  verbose = TRUE
+)
+
+hvg <- VariableFeatures(obj)
+expr <- GetAssayData(obj, assay = "SCT", layer = "data")
+
+# Compute variance for HVGs
+var_hvg <- apply(expr[hvg, ], 1, var)
+
+# Plot variance-ranked HVGs
+var_df <- data.frame(
+  gene = hvg,
+  variance = var_hvg
+)
+
+var_df <- var_df[order(var_df$variance, decreasing = TRUE), ]
+var_df$rank <- seq_len(nrow(var_df))
+
+ggplot(var_df, aes(x = rank, y = variance)) +
+  geom_line() +
+  theme_classic() +
+  xlab("Ranked HVGs") +
+  ylab("Variance") +
+  ggtitle("Scree-like plot using HVGs")
+
+# Get variable features with their variance
+vf <- HVFInfo(merge) %>%
+  arrange(desc(variance.standardized))
+
+# Compute cumulative variance explained
+vf$cumvar <- cumsum(vf$variance.standardized) / sum(vf$variance.standardized)
+
+# Plot: cumulative variance vs number of genes
+ggplot(vf, aes(x = seq_along(cumvar), y = cumvar)) +
+  geom_line() +
+  labs(x = "Number of genes included",
+       y = "Cumulative variance explained",
+       title = "How variance decreases as more variable genes are included") +
+  theme_classic()
+
 
 ##### HOW TO CHANGE ENSEMBL TO GENE SYMBOL #####
 # For mice
