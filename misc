@@ -1,0 +1,99 @@
+##### READING IN DIFFERENT FILE TYPES #####
+# mtx file
+mtx_obj <- ReadMtx(mtx = "matrix.mtx.gz",
+                   features = "features.tsv.gz",
+                   cells = "barcodes.tsv.gz")
+obj <- CreateSeuratObject(counts = mtx_obj)
+
+# csv file
+meta <- read.table(file = 'newmetadata.csv', sep = ',', header = TRUE)
+
+# hdf5 file
+inputdata.10x <- Read10X_h5("filtered_feature_bc_matrix.h5")
+fragpath <- "/pathtofile/atac_fragments.tsv.gz"
+rna_counts <- inputdata.10x$`Gene Expression`
+obj <- CreateSeuratObject(counts = rna_counts, project = "ProjName")
+
+# h5ad file
+library(SeuratDisk)
+Convert("adata.h5ad", ".h5seurat")
+obj <- LoadH5Seurat("adata.h5seurat")
+Convert("adata.h5ad", dest = "h5seurat", overwrite = TRUE)
+
+
+##### ADDING METADATA CATEGORIES TO YOUR OBJECT BASED ON CELL BARCODES #####
+# If you want to transfer the identities in one object to another that has the same cells
+obj1 <- subset(obj1, idents = 'New')
+obj1names <- colnames(obj1)
+
+# Check to make sure your barcodes are the same i.e. nothing else added
+head(colnames(obj1))
+head(colnames(obj2))
+
+# If the barcodes were modified in any way you can insert (paste0) to match or delete (..$) to subtract characters
+obj1names <- sub("..$", "", obj1names)
+names(obj1names) <- paste0(names(obj1names),"_1")
+
+# Now you can add the barcodes with identities to the new object's meta data
+obj2names <- cbind(obj1names, as.matrix(obj1@meta.data$New))
+rownames(obj2names) <- obj2names[,1]
+obj2names <- obj2names[,-1]
+obj2 <- AddMetaData(obj2, metadata = c(obj2names), col.name = 'New')
+DimPlot(obj2, idents = 'New)
+
+# BONUS - can use this to subset out cells based on gene expression counts
+Ins1 <- names(which((beta@assays[["SCT"]]@data['Ins1',] > 5)))
+
+
+##### VISUALIZING PCA DIMENSIONS #####
+DimHeatmap(mouse, dims = 1, cells = 500, balanced = TRUE)
+
+
+##### SPECIFYING COLORS #####
+show_col(hue_pal()(12))
+DimPlot(CCPPtest, pt.size = 1, group.by = "SubOrigIdents",cols = c("#00BFC4", "#F8766D","#7CAE00"))
+
+
+##### DEFINING ORDERED LEVELS OF CLUSTER IDENTITIES #####
+my_levels <- c('NP_1', 'NP_2', 'E8_1', 'E8_2', 'E14_1', 'E14_2', 'E17_1', 'E17_3', 'MP_1')
+obj$orig.ident <- factor(x = obj$orig.ident, levels = my_levels)
+
+
+
+##### HOW TO CHANGE ENSEMBL TO GENE SYMBOL #####
+# For mice
+library(biomaRt)
+
+ensembl <- useDataset("mmusculus_gene_ensembl", mart = ensembl)
+vals <- unique(ctrl$Feature)
+gene_annotations <- getBM(
+  attributes = c('mgi_symbol', 'ensembl_gene_id'),
+  filters = 'mgi_symbol',
+  values = vals,
+  mart = ensembl)
+
+exonlength <- merge(ctrl, gene_annotations, by.x = "Feature", by.y = "mgi_symbol")
+dim(exonlength)
+symbol <- exonlength[,1995]
+head(symbol)
+exonlength2 <- cbind(symbol, exonlength)
+ctrl <- exonlength2
+vals <- unique(ctrl$symbol)
+
+gene_annotations <- getBM(
+  attributes = c('ensembl_gene_id', 'external_gene_name'),
+  filters = 'ensembl_gene_id',
+  values = vals,
+  mart = ensembl)
+
+
+# For human
+tr2g <- read_tsv("transcripts_to_genes_ms.txt", col_names = c("transcript", "gene", "gene_symbol")) %>%
+  select(-transcript) %>%
+  distinct()
+
+rownames(res_mat) <- tr2g$gene_symbol[match(rownames(res_mat), tr2g$gene)]
+uniquerowname <- unique(rownames(res_mat))
+res_mat2 <- res_mat[uniquerowname,]
+dim(res_mat2)
+seu <- CreateSeuratObject(res_mat2)
