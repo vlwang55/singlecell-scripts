@@ -117,6 +117,12 @@ ggplot(vf, aes(x = seq_along(cumvar), y = cumvar)) +
   theme_classic()
 
 
+##### VISUALIZING MODULE SCORING BASED ON A GENE LIST #####
+pancdevlist <- c('PDX1', 'NKX6-1', 'GATA4', 'GATA6', 'PTF1A', 'ONECUT1')
+obj <- AddModuleScore(obj, features = list(pancdevlist), name = "PancDev_Score")
+VlnPlot(obj, features = c("PancDev_Score1"), group.by = "orig.ident")
+
+
 ##### HOW TO CHANGE ENSEMBL TO GENE SYMBOL #####
 # For mice
 library(biomaRt)
