@@ -1,7 +1,10 @@
 # singlecell-scripts
 My single cell RNA and RNA/ATAC scripts for people who are new to single cell analysis
 
-I would recommend running through scmultiome.R if you're new because it has the most detailed explanations and only deals with one sample. You can ask me for a sample dataset.
+I would recommend running through scmultiome.R if you're new because it has the most detailed explanations and only deals with one sample. You can ask me for a sample dataset. Below is my recommended workflow, but if you only have one sample and don't need to integrate you can skip objectintegration.R.
+
+<img width="403" height="131" alt="image" src="https://github.com/user-attachments/assets/545ff357-76b9-4a01-a708-8e30024de8c2" />
+
 
 ## importparse.R
 This is for if you're working with Parse sequencing technology and have downloaded the matrices after the initial alignment to analyze yourself. 
