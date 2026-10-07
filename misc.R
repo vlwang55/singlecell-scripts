@@ -41,7 +41,7 @@ obj2names <- obj2names[,-1]
 obj2 <- AddMetaData(obj2, metadata = c(obj2names), col.name = 'New')
 DimPlot(obj2, idents = 'New)
 
-# BONUS - can use this to subset out cells based on gene expression counts
+# BONUS - can use this to subset out cells based on gene expression counts#
 Ins1 <- names(which((beta@assays[["SCT"]]@data['Ins1',] > 5)))
 
 
@@ -160,3 +160,61 @@ uniquerowname <- unique(rownames(res_mat))
 res_mat2 <- res_mat[uniquerowname,]
 dim(res_mat2)
 seu <- CreateSeuratObject(res_mat2)
+library(biomaRt)
+library(stringr)
+
+mart <- useMart('ENSEMBL_MART_ENSEMBL', 'hsapiens_gene_ensembl', host = "https://grch37.ensembl.org")
+
+ensembl <- useDataset("hsapiens_gene_ensembl", mart = martobj)
+test <- read.table("S4C3_multiome_SCT_ND_progrelatedonly_DARpeaks.csv", sep = ",", header = TRUE)
+
+df <- test %>%
+  separate(firstpeak, into = c("chrom", "start", "end"), sep = "-", remove = FALSE) %>%
+  mutate(chrom = sub("^chr", "", chrom),
+         chrom = ifelse(chrom == "M", "MT", chrom),
+         start = as.numeric(start),
+         end   = as.numeric(end))
+
+peak_gr <- GRanges(df$chrom, IRanges(df$start, df$end),
+                   peak = df$firstpeak)
+# --- 2. Gene annotations from Ensembl ---
+# Match the build to your data. hg38 is the default; for hg19 use GRCh = 37.
+
+genes <- getBM(
+  attributes = c("ensembl_gene_id", "external_gene_name", "gene_biotype",
+                 "chromosome_name", "start_position", "end_position", "strand"),
+  filters    = "chromosome_name",
+  values     = c(1:22, "X", "Y", "MT"),
+  mart       = mart
+)
+
+gene_gr <- GRanges(genes$chromosome_name,
+                   IRanges(genes$start_position, genes$end_position),
+                   strand = ifelse(genes$strand == 1, "+", "-"),
+                   gene_id = genes$ensembl_gene_id,
+                   gene_name = genes$external_gene_name,
+                   biotype = genes$gene_biotype)
+
+# --- 3. Peaks overlapping genes ---
+hits <- findOverlaps(peak_gr, gene_gr, ignore.strand = TRUE)
+
+overlaps <- data.frame(
+  peak      = peak_gr$peak[queryHits(hits)],
+  gene_name = gene_gr$gene_name[subjectHits(hits)],
+  gene_id   = gene_gr$gene_id[subjectHits(hits)],
+  biotype   = gene_gr$biotype[subjectHits(hits)]
+)
+
+# --- 4. Nearest gene for every peak (covers peaks with no overlap) ---
+nearest_hits <- distanceToNearest(peak_gr, gene_gr, ignore.strand = TRUE)
+
+nearest <- data.frame(
+  peak      = peak_gr$peak[queryHits(nearest_hits)],
+  gene_name = gene_gr$gene_name[subjectHits(nearest_hits)],
+  gene_id   = gene_gr$gene_id[subjectHits(nearest_hits)],
+  distance  = mcols(nearest_hits)$distance   # 0 = overlapping
+)
+
+head(overlaps)
+head(nearest)
+
